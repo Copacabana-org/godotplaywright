@@ -101,6 +101,12 @@ func _dispatch(cmd: String, args: Dictionary) -> Dictionary:
 			return _cmd_open_rules(args)
 		"close_rules":
 			return _cmd_close_rules(args)
+		"open_history":
+			return _cmd_open_history(args)
+		"close_history":
+			return _cmd_close_history(args)
+		"close_overlays":
+			return _cmd_close_overlays(args)
 		"bet_plus":
 			return _cmd_bet_plus(args)
 		"bet_minus":
@@ -467,28 +473,140 @@ func _cmd_open_rules(_args: Dictionary) -> Dictionary:
 func _cmd_close_rules(_args: Dictionary) -> Dictionary:
 	var rules := _rules_panel()
 	if rules == null:
-		# Still try to clear dimmer so we never leave a stuck overlay
-		var dim0 := _menu_dimmer()
-		if dim0:
-			dim0.hide()
+		_force_hide_dimmer_and_sidebar()
 		return _err("rules_not_found")
-	if rules.has_method("_on_close_button_pressed"):
-		rules.call("_on_close_button_pressed")
-		# Ensure dimmer is gone even if the tween path stalls on web
+	# Prefer hard hide for automation reliability (tweens + show_sidebar side-effects
+	# left the History/Rules stack stuck in earlier tours).
+	_force_hide_panel(rules)
+	_force_hide_dimmer_and_sidebar()
+	return _ok({"via": "Rules.force_hide", "path": str(rules.get_path())})
+
+
+func _history_panel() -> Node:
+	var direct := get_node_or_null("/root/Main/Menu/SideMenu/History")
+	if direct != null and direct is Panel:
+		return direct
+	var candidates: Array = []
+	_collect_named(get_tree().root, "History", candidates)
+	for n in candidates:
+		if n is Panel and (n.has_method("_show") or n.has_method("_hide")):
+			return n
+	for n in candidates:
+		if n is Panel:
+			return n
+	return null
+
+
+func _language_panel() -> Node:
+	var direct := get_node_or_null("/root/Main/Menu/SideMenu/Language")
+	if direct != null and direct is Panel:
+		return direct
+	var candidates: Array = []
+	_collect_named(get_tree().root, "Language", candidates)
+	for n in candidates:
+		if n is Panel:
+			return n
+	return null
+
+
+func _force_hide_panel(node: Node) -> void:
+	if node == null:
+		return
+	if node is CanvasItem:
+		(node as CanvasItem).hide()
+	# Cancel lingering tweens that might re-show
+	if node.has_method("set"):
+		pass
+
+
+func _force_hide_dimmer_and_sidebar() -> void:
+	# Full-screen dimmers (stuck overlay bug after History/Rules force-close).
+	var dim := _menu_dimmer()
+	if dim:
+		dim.hide()
+		dim.modulate = Color(1, 1, 1, 1)
+		if dim is Control:
+			(dim as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# SideMenu slide-in veil (separate from MenuDimmer).
+	var side_overlay := get_node_or_null("/root/Main/Menu/SideMenu/Overlay")
+	if side_overlay == null:
+		var sm := _find_named("SideMenu")
+		if sm:
+			side_overlay = sm.get_node_or_null("Overlay")
+	if side_overlay is CanvasItem:
+		var so := side_overlay as CanvasItem
+		so.hide()
+		so.modulate = Color(1, 1, 1, 0)
+		if so is Control:
+			(so as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar := _find_named("SideBar")
+	if bar is CanvasItem:
+		(bar as CanvasItem).hide()
+	# SideBar "show_sidebar" path sometimes leaves position mid-screen; force off.
+	if bar is Control:
+		var c := bar as Control
+		c.position.x = -600.0
+	# Notification veil, if any
+	var notif := _find_named("Notification")
+	if notif:
+		var no := notif.get_node_or_null("Overlay")
+		if no is CanvasItem:
+			(no as CanvasItem).hide()
+
+
+func _cmd_open_history(args: Dictionary) -> Dictionary:
+	var bar := _find_named("SideBar")
+	if bar != null and bar.has_method("_on_history_pressed"):
+		if bool(args.get("via_menu", false)):
+			var sm := _find_named("SideMenu")
+			if sm != null and sm.has_method("do_menu"):
+				if bar is CanvasItem and not (bar as CanvasItem).visible:
+					sm.call("do_menu")
+		bar.call("_on_history_pressed")
+		return _ok({"via": "SideBar._on_history_pressed"})
+	var hist := _history_panel()
+	if hist != null and hist.has_method("_show"):
+		hist.call("_show")
 		var dim := _menu_dimmer()
-		if dim and dim.visible:
-			# give the real close a frame; if still up, force hide
-			dim.hide()
-		if rules is CanvasItem:
-			(rules as CanvasItem).hide()
-		return _ok({"via": "Rules._on_close_button_pressed", "path": str(rules.get_path())})
-	# Hard close fallback
-	if rules is CanvasItem:
-		(rules as CanvasItem).hide()
-	var dim2 := _menu_dimmer()
-	if dim2:
-		dim2.hide()
-	return _ok({"via": "Rules.hide_force", "path": str(rules.get_path())})
+		if dim:
+			dim.show()
+		return _ok({"via": "History._show"})
+	return _err("history_not_found")
+
+
+func _cmd_close_history(_args: Dictionary) -> Dictionary:
+	var hist := _history_panel()
+	if hist == null:
+		_force_hide_dimmer_and_sidebar()
+		return _err("history_not_found")
+	# Do NOT call History._hide() — it emits show_sidebar and leaves the stack messy.
+	_force_hide_panel(hist)
+	_force_hide_dimmer_and_sidebar()
+	return _ok({"via": "History.force_hide", "path": str(hist.get_path())})
+
+
+## Close History, Rules, Language, Support, AutoplayPanel, dimmer, sidebar.
+func _cmd_close_overlays(_args: Dictionary) -> Dictionary:
+	var closed: Array = []
+	var hist := _history_panel()
+	if hist is CanvasItem and (hist as CanvasItem).visible:
+		_force_hide_panel(hist)
+		closed.append("History")
+	var rules := _rules_panel()
+	if rules is CanvasItem and (rules as CanvasItem).visible:
+		_force_hide_panel(rules)
+		closed.append("Rules")
+	var lang := _language_panel()
+	if lang is CanvasItem and (lang as CanvasItem).visible:
+		_force_hide_panel(lang)
+		closed.append("Language")
+	for name in ["Support", "AutoplayPanel", "WinOverlay", "FreeSpinOverlay"]:
+		var n := _find_named(name)
+		if n is CanvasItem and (n as CanvasItem).visible:
+			_force_hide_panel(n)
+			closed.append(name)
+	_force_hide_dimmer_and_sidebar()
+	return _ok({"closed": closed})
 
 
 func _portrait() -> Node:

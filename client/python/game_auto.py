@@ -126,6 +126,18 @@ class GameAuto:
     async def close_rules(self) -> Any:
         return await self.page.evaluate("async () => window.__GAME_AUTO__.closeRules()")
 
+    async def open_history(self, via_menu: bool = False) -> Any:
+        return await self.page.evaluate(
+            """async (via_menu) => window.__GAME_AUTO__.openHistory({ via_menu })""",
+            via_menu,
+        )
+
+    async def close_history(self) -> Any:
+        return await self.page.evaluate("async () => window.__GAME_AUTO__.closeHistory()")
+
+    async def close_overlays(self) -> Any:
+        return await self.page.evaluate("async () => window.__GAME_AUTO__.closeOverlays()")
+
     async def bet_plus(self, times: int = 1) -> Any:
         return await self.page.evaluate(
             """async (times) => window.__GAME_AUTO__.betPlus(times)""",

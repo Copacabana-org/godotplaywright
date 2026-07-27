@@ -158,10 +158,14 @@ Coordenadas = **viewport Godot** (ex. 700×1370), não pixels CSS. Use `get_stat
 | Menu | `open_menu()` |
 | Idiomas no menu | `open_languages()` |
 | Regras | `open_rules()` / `close_rules()` |
+| Histórico | `open_history()` / `close_history()` |
+| Limpar tudo | `close_overlays()` ← **use entre passos de tour** |
 | Aposta | `bet_plus(n)` / `bet_minus(n)` |
 | Spin | `spin()` |
 
 Se o jogo não tiver esses nós, o cmd retorna erro tipado — use pointer + hotspots.
+
+> **Overlay escuro:** fechar só o modal não basta. Chame `close_overlays()` (limpa `MenuDimmer` + `SideMenu/Overlay` + sidebar).
 
 ---
 
@@ -188,6 +192,7 @@ Tempo típico: **~15 min** no primeiro jogo; os seguintes são copy-paste.
 | [`examples/demo_play_flow.py`](examples/demo_play_flow.py) | pt → bet+ → spin (headed) |
 | [`examples/demo_menu_lang_spin.py`](examples/demo_menu_lang_spin.py) | pt → menu → muda idioma → bet → spin |
 | [`examples/demo_rules_i18n_shots.py`](examples/demo_rules_i18n_shots.py) | regras nas 5 primeiras línguas + PNG |
+| [`examples/demo_full_screen_tour.py`](examples/demo_full_screen_tour.py) | tour completo + animações + PNGs |
 | [`examples/playwright.spec.mjs`](examples/playwright.spec.mjs) | esqueleto `@playwright/test` |
 
 ```bash
@@ -197,6 +202,8 @@ cd examples
 python demo_play_flow.py
 # screenshots de regras
 OUT_DIR=/tmp/rules_i18n LANGS=pt,en,es,hi,ru python demo_rules_i18n_shots.py
+# tour visual completo (saída em /tmp/godot_tour)
+OUT_DIR=/tmp/godot_tour python demo_full_screen_tour.py
 ```
 
 ---

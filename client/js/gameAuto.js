@@ -140,6 +140,21 @@ export class GameAuto {
     return this.page.evaluate(async () => window.__GAME_AUTO__.closeRules())
   }
 
+  openHistory(viaMenu = false) {
+    return this.page.evaluate(
+      async (via_menu) => window.__GAME_AUTO__.openHistory({ via_menu }),
+      viaMenu,
+    )
+  }
+
+  closeHistory() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.closeHistory())
+  }
+
+  closeOverlays() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.closeOverlays())
+  }
+
   betPlus(times = 1) {
     return this.page.evaluate(async (times) => window.__GAME_AUTO__.betPlus(times), times)
   }

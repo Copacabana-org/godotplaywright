@@ -19,13 +19,17 @@ Comando bruto do protocolo. Prefira os atalhos abaixo.
 | JS | Python | Notas |
 |----|--------|-------|
 | `move(x, y)` | `move(x, y)` | Viewport Godot |
-| `click(x, y, button?)` | `click(x, y, button?)` | default `left` |
+| `click(x, y, button?)` | `click(x, y, button?)` | default `left`; ativa `BaseButton` sob o ponto |
 | `rightClick(x, y)` | `right_click(x, y)` | |
 | `mouseDown(x, y, button?)` | `mouse_down(...)` | |
 | `mouseUp(x, y, button?)` | `mouse_up(...)` | |
 | `drag(x1,y1,x2,y2, steps?, button?)` | `drag(...)` | |
 | `tapControl(name)` | `tap_control(name)` | por nome de nó |
-| `getHotspots()` | `get_hotspots()` | lista de alvos |
+| `getHotspots()` | `get_hotspots()` | lista de alvos visíveis |
+
+Coordenadas = **viewport Godot** (não CSS do browser). Use `getState().viewport`.
+
+---
 
 ## Estado
 
@@ -63,18 +67,40 @@ Comando bruto do protocolo. Prefira os atalhos abaixo.
 
 Campos dependem do que o `Helpers` do jogo expõe.
 
+---
+
 ## Semântica (Template-line)
 
-| JS | Python |
-|----|--------|
-| `setLanguage(code)` | `set_language(code)` |
-| `openMenu()` | `open_menu()` |
-| `openLanguages()` | `open_languages()` |
-| `openRules({ via_menu }?)` | `open_rules(via_menu?)` |
-| `closeRules()` | `close_rules()` |
-| `betPlus(times?)` | `bet_plus(times?)` |
-| `betMinus(times?)` | `bet_minus(times?)` |
-| `spin()` | `spin()` |
+| JS | Python | Notas |
+|----|--------|-------|
+| `setLanguage(code)` | `set_language(code)` | Prefer painel Language |
+| `openMenu()` | `open_menu()` | `SideMenu.do_menu` |
+| `openLanguages()` | `open_languages()` | item Languages no menu |
+| `openRules({ via_menu }?)` | `open_rules(via_menu?)` | Panel Rules (não o Button) |
+| `closeRules()` | `close_rules()` | force-hide + limpa dimmer |
+| `openHistory({ via_menu }?)` | `open_history(via_menu?)` | Panel History |
+| `closeHistory()` | `close_history()` | **não** chama `_hide` (evita reabrir sidebar) |
+| `closeOverlays()` | `close_overlays()` | fecha tudo: History, Rules, Language, Support, Autoplay, dimmers, sidebar |
+| `betPlus(times?)` | `bet_plus(times?)` | |
+| `betMinus(times?)` | `bet_minus(times?)` | |
+| `spin()` | `spin()` | |
+
+### `closeOverlays()` — use sempre entre passos de tour
+
+Modais Everest deixam `MenuDimmer` e `SideMenu/Overlay` ativos se só fizerem `hide()` no painel. O cmd força:
+
+- hide de History / Rules / Language / Support / AutoplayPanel / WinOverlay / FreeSpinOverlay  
+- `MenuDimmer` hide + mouse ignore  
+- `SideMenu/Overlay` alpha 0  
+- SideBar fora da tela  
+
+```python
+await auto.open_history(via_menu=True)
+await auto.close_overlays()   # mesa limpa de novo
+await auto.spin()
+```
+
+---
 
 ## Presets de moeda
 
@@ -91,6 +117,10 @@ await auto.setCurrency({
   presentation_multiplier: '1',
 })
 ```
+
+> **Nota:** se só a carteira mudar de símbolo e bet/win ficarem com `R$`, o jogo precisa refrescar todos os labels em `update_balance_display` — não é falha do protocolo.
+
+---
 
 ## Erros
 

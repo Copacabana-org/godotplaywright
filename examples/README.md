@@ -20,9 +20,41 @@ cd ../../examples
 | `demo_play_flow.py` | **sim** | pt → bet+ → spin |
 | `demo_menu_lang_spin.py` | **sim** | pt → menu → muda idioma → bet → spin |
 | `demo_rules_i18n_shots.py` | **sim** | regras nas N línguas + PNG em `OUT_DIR` |
+| `demo_full_screen_tour.py` | **sim** | tour completo: telas + animações + PNGs |
 | `playwright.spec.mjs` | — | esqueleto `@playwright/test` |
 
-## Screenshots de regras
+---
+
+## Tour completo (recomendado para regressão visual)
+
+Percorre idioma, menu, history, rules, currency, autoplay, bet, spin (burst de frames) e grava tudo.
+
+```bash
+OUT_DIR=/tmp/godot_tour \
+STEP_PAUSE=0.8 \
+SPIN_BURST_N=12 \
+BURST_MS=260 \
+BASE_URL=http://127.0.0.1:4174 \
+python demo_full_screen_tour.py
+```
+
+Saída:
+
+```
+/tmp/godot_tour/
+  001_00_navigate_shell.png
+  022_12_main_after_history_game.png   # deve estar limpo (sem History / dimmer)
+  058_27_spin_anim_06_game.png         # reels visíveis
+  073_30_final_game.png
+  index.md
+  manifest.json
+```
+
+O script chama `close_overlays()` entre passos para evitar o véu escuro.
+
+---
+
+## Screenshots de regras (i18n)
 
 ```bash
 OUT_DIR=/tmp/rules_i18n \
@@ -32,10 +64,11 @@ BASE_URL=http://127.0.0.1:4174 \
 python demo_rules_i18n_shots.py
 ```
 
-Saída: `/tmp/rules_i18n/rules_01_pt.png`, `…_iframe.png`, `index.md`.
+---
 
 ## Notas
 
 - Demo offline (`?demo`) exige **build + preview** do shell; `vite dev` geralmente não registra o service worker.
-- Ações semânticas (`spin`, `open_rules`, …) exigem nós Template-line no jogo; senão use `get_hotspots` + `click`.
-- `close_rules` fecha o **Panel** `Rules`, não o Button homônimo do menu (isso já está no bridge).
+- Ações semânticas (`spin`, `open_rules`, …) exigem nós Template-line; senão use `get_hotspots` + `click`.
+- `close_rules` / `close_history` fecham o **Panel** modal, não o Button do menu com o mesmo nome.
+- Depois de qualquer modal: `close_overlays()` se a mesa continuar escura.

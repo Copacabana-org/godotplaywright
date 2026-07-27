@@ -170,7 +170,22 @@ Comandos core portáteis (sempre presentes):
 
 Comandos Template-line (opcionais):
 
-`set_language`, `open_menu`, `open_languages`, `open_rules`, `close_rules`, `bet_plus`, `bet_minus`, `spin`
+`set_language`, `open_menu`, `open_languages`, `open_rules`, `close_rules`, `open_history`, `close_history`, `close_overlays`, `bet_plus`, `bet_minus`, `spin`
+
+### Armadilha: overlay escuro depois de fechar modal
+
+Fechar só o painel (`History.hide()` / `Rules.hide()`) **não** basta. O shell Everest usa:
+
+- `MenuDimmer` (ColorRect full-screen)
+- `SideMenu/Overlay` (véu do drawer)
+
+Sem limpar os dois, a mesa fica escura e cliques parecem “mortos”. Em tours, chame sempre:
+
+```python
+await auto.close_overlays()
+```
+
+ou os `close_history` / `close_rules` do bridge (já forçam dimmer + sidebar).
 
 ---
 
@@ -181,4 +196,6 @@ Comandos Template-line (opcionais):
 - [ ] `GameAutoBridge.js` + `isAutomationEnabled` + `handleParentMessage`  
 - [ ] `PROD_HOSTNAMES` com host de produção  
 - [ ] Export web + smoke local: `ping` + `getState`  
+- [ ] Smoke: `open_history` → `close_overlays` → mesa **sem** véu escuro  
 - [ ] Confirmar que em prod `window.__GAME_AUTO__` **não** existe  
+

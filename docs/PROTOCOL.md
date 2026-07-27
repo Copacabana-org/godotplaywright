@@ -50,10 +50,24 @@ Coordenadas: **viewport Godot** (não CSS do browser).
 | `set_language` | `code`, `show?` | Prefer Language panel |
 | `open_menu` | — | `SideMenu.do_menu` |
 | `open_languages` | — | `SideBar._on_languages_pressed` |
-| `open_rules` | `via_menu?` | Prefer panel Rules, não o Button homônimo |
-| `close_rules` | — | Fecha panel + dimmer |
+| `open_rules` | `via_menu?` | Panel Rules (não o Button homônimo) |
+| `close_rules` | — | force-hide + dimmers |
+| `open_history` | `via_menu?` | Panel History |
+| `close_history` | — | force-hide; **não** chama `_hide` (reabre sidebar) |
+| `close_overlays` | — | fecha todos os modais + MenuDimmer + SideMenu/Overlay + SideBar |
 | `bet_plus` / `bet_minus` | `times?` | Portrait handlers |
 | `spin` | — | Portrait spin |
+
+#### Homônimos perigosos
+
+Vários nós se chamam igual:
+
+| Nome | Button (menu) | Panel (modal) |
+|------|---------------|---------------|
+| `Rules` | item do SideBar | modal de regras |
+| `History` | item do SideBar | modal de histórico |
+
+O bridge resolve pelo **Panel** com `_show` / path `/root/Main/Menu/SideMenu/...`.
 
 ## Godot → Shell
 
