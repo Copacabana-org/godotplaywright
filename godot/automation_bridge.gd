@@ -660,9 +660,9 @@ func _cmd_spin(_args: Dictionary) -> Dictionary:
 
 # ─── Currency (runtime, no remount) ───────────────────────────────────────────
 
-# Mirrors Template-line Helpers._CURRENCY_DEFAULTS so a bare code fully replaces
-# any previous currency (set_currency_from_backend only writes keys present in payload).
-const _CURRENCY_DEFAULTS := {
+# Fallback when Helpers does not expose the table (portable package / older games).
+# Prefer Helpers._CURRENCY_DEFAULTS at runtime via _currency_defaults_map().
+const _CURRENCY_DEFAULTS_FALLBACK := {
 	"BRL": {"symbol": "R$",  "precision": "2", "thousand_sep": ".", "decimal_sep": ","},
 	"USD": {"symbol": "$",   "precision": "2", "thousand_sep": ",", "decimal_sep": "."},
 	"EUR": {"symbol": "€",   "precision": "2", "thousand_sep": ".", "decimal_sep": ","},
@@ -677,6 +677,17 @@ const _CURRENCY_DEFAULTS := {
 }
 
 
+func _currency_defaults_map() -> Dictionary:
+	var helpers := _helpers()
+	if helpers != null:
+		var scr = helpers.get_script()
+		if scr != null and scr.has_method("get_script_constant_map"):
+			var constants: Dictionary = scr.get_script_constant_map()
+			if constants.has("_CURRENCY_DEFAULTS") and constants["_CURRENCY_DEFAULTS"] is Dictionary:
+				return constants["_CURRENCY_DEFAULTS"]
+	return _CURRENCY_DEFAULTS_FALLBACK
+
+
 ## args keys (all optional except code recommended):
 ##   code | currency, symbol, format_precision | precision,
 ##   presentation_multiplier, thousand_sep, decimal_sep
@@ -689,7 +700,7 @@ func _cmd_set_currency(args: Dictionary) -> Dictionary:
 	if code.is_empty() and "currency_code" in helpers:
 		code = str(helpers.currency_code).to_upper()
 
-	var defaults: Dictionary = _CURRENCY_DEFAULTS.get(code, {})
+	var defaults: Dictionary = _currency_defaults_map().get(code, {})
 
 	# Always send a full format so switching USD→BRL does not leave "$" behind.
 	var symbol := str(args.get("symbol", defaults.get("symbol", "$")))

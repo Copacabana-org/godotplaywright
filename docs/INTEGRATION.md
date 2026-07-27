@@ -68,15 +68,25 @@ cp vue/GameAutoBridge.js  <vuejs>/src/services/GameAutoBridge.js
 
 ### 2.2 Prod hosts (obrigatório)
 
-Edite `PROD_HOSTNAMES` no topo do arquivo. Hosts nessa lista **nunca** instalam o bridge, mesmo com `?automation=1`.
+Edite `PROD_HOSTNAMES` no topo do arquivo (ou passe `prodHostnames` em `isAutomationEnabled({ prodHostnames })`). Hosts nessa lista **nunca** instalam o bridge.
 
 ```js
-const PROD_HOSTNAMES = [
-  'my-game.casinoapp.live',
+export const PROD_HOSTNAMES = [
+  'my-game.casinoapp.live',  // obrigatório por jogo
 ]
 ```
 
-> **Atenção:** lista vazia + `?automation=1` em um host de produção **não** listado = bridge ligado. Sempre preencha o host real de prod.
+**Regras de enable (revisão de segurança):**
+
+| Host | Como liga |
+|------|-----------|
+| `localhost` / `127.0.0.1` | sempre |
+| `staging-*` / `dev-*` / `demo-*` | sempre |
+| `*.casinoapp.live` **sem** prefixo de env | **bloqueado** (safety net Everest) |
+| Em `PROD_HOSTNAMES` | **bloqueado** |
+| Outro host | só `?automation=1` (exato; `?automation=0` **não** liga) |
+
+`localStorage.__GAME_AUTO__` **sozinho** não habilita em host desconhecido/prod — só o shell seta a flag **depois** de `isAutomationEnabled()` passar.
 
 ### 2.3 Instalar no GamePage
 
@@ -194,8 +204,19 @@ ou os `close_history` / `close_rules` do bridge (já forçam dimmer + sidebar).
 - [ ] `automation_bridge.gd` no autoload  
 - [ ] `action == "auto"` despachado  
 - [ ] `GameAutoBridge.js` + `isAutomationEnabled` + `handleParentMessage`  
-- [ ] `PROD_HOSTNAMES` com host de produção  
+- [ ] `PROD_HOSTNAMES` com host de produção **real** do jogo  
+- [ ] Smoke: em host de prod (ou `*.casinoapp.live` sem prefixo) `?automation=1` **não** instala bridge  
+- [ ] Smoke: `?automation=0` **não** instala bridge  
 - [ ] Export web + smoke local: `ping` + `getState`  
 - [ ] Smoke: `open_history` → `close_overlays` → mesa **sem** véu escuro  
 - [ ] Confirmar que em prod `window.__GAME_AUTO__` **não** existe  
+
+### Relação monorepo vs pacote
+
+- **Fonte canônica:** [Copacabana-org/godotplaywright](https://github.com/Copacabana-org/godotplaywright)
+- Em monorepo de **jogo**, **não** commite uma segunda cópia byte-a-byte em `everest-game-auto/` + `Scripts/` + sync script. Prefira:
+  - submodule / sparse checkout do pacote, ou
+  - symlink `Godot/Scripts/automation_bridge.gd` → path do pacote, ou
+  - uma única cópia no jogo (sem pasta espelho)
+- `examples/` vivem no **pacote** (docs de QA); não precisam ir no PR do jogo nem no CI do jogo até haver job real.
 

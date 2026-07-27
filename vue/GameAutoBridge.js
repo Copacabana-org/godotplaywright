@@ -16,12 +16,18 @@
  *   this._gameAuto?.handleParentMessage(event.data)
  */
 
-const PROD_HOSTNAMES = [
-  // Deny-list production hosts for EACH game you integrate.
-  // Example: 'my-game.casinoapp.live',
+/**
+ * Production hostnames — MUST be filled when integrating a game.
+ * Any host listed here never installs the bridge, even with ?automation=1.
+ *
+ * Extra safety: hosts matching *.casinoapp.live without staging-/dev-/demo-
+ * prefixes are also treated as production (see isProductionHost).
+ */
+export const PROD_HOSTNAMES = [
+  // Per-game, e.g. 'craps-slot.casinoapp.live',
 ]
 
-/** Currencies shared by Template-line Helpers._CURRENCY_DEFAULTS */
+/** Currencies (fallback when the game does not expose Helpers defaults). */
 export const CURRENCY_PRESETS = {
   BRL: {
     code: 'BRL',
@@ -113,25 +119,61 @@ export const CURRENCY_PRESETS = {
   },
 }
 
-export function isAutomationEnabled(options = {}) {
-  if (typeof window === 'undefined') return false
-  const host = window.location.hostname || ''
-  const prodList = options.prodHostnames || PROD_HOSTNAMES
-  if (prodList.includes(host)) return false
-
-  const params = new URLSearchParams(window.location.search)
-  if (params.has('automation') || params.get('automation') === '1') {
-    // explicit opt-in on non-prod
+/**
+ * True for hosts where automation must never run (real-money / player-facing).
+ * @param {string} host
+ * @param {string[]} [prodList]
+ */
+export function isProductionHost(host, prodList = PROD_HOSTNAMES) {
+  if (!host) return false
+  if (prodList.includes(host)) return true
+  // Everest safety net: bare casinoapp.live without env prefix = prod even if
+  // the integrator forgot to fill PROD_HOSTNAMES.
+  if (
+    host.endsWith('.casinoapp.live') &&
+    !host.startsWith('staging-') &&
+    !host.startsWith('stag-') &&
+    !host.startsWith('dev-') &&
+    !host.startsWith('demo-')
+  ) {
     return true
   }
+  return false
+}
 
+function isTrustedNonProdHost(host) {
   if (host === 'localhost' || host === '127.0.0.1') return true
   if (host.startsWith('staging-') || host.startsWith('stag-')) return true
   if (host.startsWith('dev-')) return true
   if (host.startsWith('demo-')) return true
-  // Allow force via localStorage for custom QA hosts
-  const flag = localStorage.getItem('__GAME_AUTO__')
-  return flag === '1' || flag === 'true'
+  return false
+}
+
+/**
+ * Whether the shell may install window.__GAME_AUTO__.
+ *
+ * Enabled only when:
+ *  - host is trusted non-prod (localhost / staging- / dev- / demo-), OR
+ *  - `?automation=1` (exactly) on a non-production host
+ *
+ * Never enabled when isProductionHost(host). localStorage alone cannot enable
+ * the bridge on unknown/production hosts.
+ */
+export function isAutomationEnabled(options = {}) {
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname || ''
+  const prodList = options.prodHostnames || PROD_HOSTNAMES
+
+  if (isProductionHost(host, prodList)) return false
+
+  if (isTrustedNonProdHost(host)) return true
+
+  // Explicit opt-in only — not params.has('automation') (would allow ?automation=0)
+  const params = new URLSearchParams(window.location.search)
+  const auto = params.get('automation')
+  if (auto === '1' || auto === 'true') return true
+
+  return false
 }
 
 /**
@@ -347,27 +389,8 @@ export function installGameAutoBridge(opts) {
     onTrack,
     recentTracks: () => trackBuffer.slice(),
     handleParentMessage,
-    /** mark signals from host if message event already consumed elsewhere */
-    markGameLoaded() {
-      gameLoaded = true
-      tryResolveReady()
-    },
-    markLoaderDone() {
-      loaderDone = true
-      tryResolveReady()
-    },
-    markAutoReady() {
-      autoReady = true
-      tryResolveReady()
-    },
   }
 
   window.__GAME_AUTO__ = api
   return api
-}
-
-export function uninstallGameAutoBridge() {
-  if (window.__GAME_AUTO__) {
-    delete window.__GAME_AUTO__
-  }
 }

@@ -31,6 +31,7 @@ postMessage  auto_ready | auto_result | track
 | [docs/INTEGRATION.md](docs/INTEGRATION.md) | Como plugar no jogo (Godot + Vue) — checklist de PR |
 | [docs/API.md](docs/API.md) | API dos clients JS/Python |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Envelope de mensagens (para implementadores) |
+| [docs/SECURITY.md](docs/SECURITY.md) | Gate de enable / nunca em prod |
 | [examples/](examples/) | Scripts de demo / smoke |
 
 ---
@@ -119,10 +120,13 @@ import { GameAuto } from './helpers/gameAuto.js'
 
 | Ambiente | Como ligar o bridge |
 |----------|---------------------|
-| Staging / dev / demo hosts | liga sozinho **ou** `?automation=1` |
+| Staging / dev / demo hosts | liga sozinho |
 | localhost | liga sozinho |
-| Production (`PROD_HOSTNAMES`) | **nunca** |
-| Demo offline | `?demo&automation=1` no **build** (`vite preview`), não no `vite dev` |
+| Outro host de QA | só `?automation=1` (exato) |
+| Production (`PROD_HOSTNAMES` ou `*.casinoapp.live` sem prefixo) | **nunca** (mesmo com query/localStorage) |
+| Demo offline | `?demo` no **build** (`vite preview`), não no `vite dev` |
+
+`?automation=0` / `?automation=false` **não** ligam o bridge.
 
 ---
 
