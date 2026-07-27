@@ -1,17 +1,16 @@
 """
-godotplaywright — Playwright (Python) client.
+Playwright (Python) client for godotplaywright.
 
 Usage:
     from game_auto import GameAuto
 
-    async def test_pointer(page):
+    async def test_flow(page):
         auto = GameAuto(page)
         await auto.wait_ready()
-        await auto.move(100, 200)
-        await auto.click(350, 1200)
-        await auto.set_currency("USD")
-        state = await auto.get_state()
-        assert state["currency"]["code"] == "USD"
+        await auto.set_language("pt")
+        await auto.bet_plus(2)
+        await auto.spin()
+        await auto.wait_track("spin_result")
 """
 
 from __future__ import annotations

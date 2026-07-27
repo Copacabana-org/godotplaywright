@@ -1,0 +1,25 @@
+{
+  "name": "@copacabana/godotplaywright",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright automation bridge for Godot web games (Everest Vue shell)",
+  "type": "module",
+  "exports": {
+    "./client/js/gameAuto.js": "./client/js/gameAuto.js",
+    "./vue/GameAutoBridge.js": "./vue/GameAutoBridge.js"
+  },
+  "files": [
+    "godot/",
+    "vue/",
+    "client/",
+    "docs/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Copacabana-org/godotplaywright.git"
+  }
+}

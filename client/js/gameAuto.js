@@ -1,14 +1,14 @@
 /**
- * godotplaywright — Playwright (JS/TS) client.
- * https://github.com/Copacabana-org/godotplaywright
+ * Playwright (JS/TS) client for Godot Playwright.
  *
  * @example
  *   import { GameAuto } from './gameAuto.js'
  *   const auto = new GameAuto(page)
  *   await auto.waitReady()
- *   await auto.click(350, 1200)
- *   await auto.setCurrency('USD')
- *   const state = await auto.getState()
+ *   await auto.setLanguage('pt')
+ *   await auto.betPlus(2)
+ *   await auto.spin()
+ *   await auto.waitTrack('spin_result')
  */
 
 export class GameAuto {
@@ -30,13 +30,15 @@ export class GameAuto {
     })
   }
 
-  /** @param {string} cmd @param {object} [args] */
+  /** @param {string} cmd @param {Record<string, any>} [args] */
   send(cmd, args = {}) {
     return this.page.evaluate(
       async ({ cmd, args }) => window.__GAME_AUTO__.send(cmd, args),
       { cmd, args },
     )
   }
+
+  // ── pointer ──────────────────────────────────────────────────────────────
 
   move(x, y) {
     return this.page.evaluate(async ({ x, y }) => window.__GAME_AUTO__.move(x, y), { x, y })
@@ -75,6 +77,20 @@ export class GameAuto {
     )
   }
 
+  tapControl(name) {
+    return this.page.evaluate(async (name) => window.__GAME_AUTO__.tapControl(name), name)
+  }
+
+  getHotspots() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.getHotspots())
+  }
+
+  // ── state ────────────────────────────────────────────────────────────────
+
+  ping() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.ping())
+  }
+
   getState() {
     return this.page.evaluate(async () => window.__GAME_AUTO__.getState())
   }
@@ -84,10 +100,6 @@ export class GameAuto {
       async (c) => window.__GAME_AUTO__.setCurrency(c),
       currencyOrPreset,
     )
-  }
-
-  ping() {
-    return this.page.evaluate(async () => window.__GAME_AUTO__.ping())
   }
 
   /**
@@ -101,5 +113,42 @@ export class GameAuto {
         window.__GAME_AUTO__.waitTrack(eventName, { timeoutMs }),
       { eventName, timeoutMs },
     )
+  }
+
+  // ── semantic (Template-line Godot shells) ────────────────────────────────
+
+  setLanguage(code) {
+    return this.page.evaluate(async (code) => window.__GAME_AUTO__.setLanguage(code), code)
+  }
+
+  openMenu() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.openMenu())
+  }
+
+  openLanguages() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.openLanguages())
+  }
+
+  openRules(viaMenu = false) {
+    return this.page.evaluate(
+      async (via_menu) => window.__GAME_AUTO__.openRules({ via_menu }),
+      viaMenu,
+    )
+  }
+
+  closeRules() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.closeRules())
+  }
+
+  betPlus(times = 1) {
+    return this.page.evaluate(async (times) => window.__GAME_AUTO__.betPlus(times), times)
+  }
+
+  betMinus(times = 1) {
+    return this.page.evaluate(async (times) => window.__GAME_AUTO__.betMinus(times), times)
+  }
+
+  spin() {
+    return this.page.evaluate(async () => window.__GAME_AUTO__.spin())
   }
 }

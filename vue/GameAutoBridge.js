@@ -1,28 +1,24 @@
 /**
- * godotplaywright — portable Vue shell bridge.
- * https://github.com/Copacabana-org/godotplaywright
+ * Godot Playwright — portable Vue shell bridge.
  *
  * Installs `window.__GAME_AUTO__` for Playwright / Python clients.
  * Works with dual-iframe (loader + game) and single-iframe shells.
  *
  * Usage in GamePage.vue (or equivalent):
  *   import { isAutomationEnabled, installGameAutoBridge } from './GameAutoBridge'
+ *   // mounted:
  *   if (isAutomationEnabled()) {
- *     this.gameAuto = installGameAutoBridge({
+ *     this._gameAuto = installGameAutoBridge({
  *       getGodotWindow: () => this.$refs.godotFrame?.contentWindow,
  *     })
  *   }
- *   // inside window message handler:
- *   this.gameAuto?.handleParentMessage(event.data)
+ *   // inside message handler:
+ *   this._gameAuto?.handleParentMessage(event.data)
  */
 
-/**
- * Production host deny-list. Automation is NEVER enabled on these hosts.
- * Add every player-facing prod hostname of your game here.
- * @type {string[]}
- */
 const PROD_HOSTNAMES = [
-  // e.g. 'my-game.casinoapp.live',
+  // Deny-list production hosts for EACH game you integrate.
+  // Example: 'my-game.casinoapp.live',
 ]
 
 /** Currencies shared by Template-line Helpers._CURRENCY_DEFAULTS */

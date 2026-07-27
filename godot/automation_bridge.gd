@@ -1,9 +1,8 @@
 extends Node
-## godotplaywright — portable Godot automation bridge (web only).
-## https://github.com/Copacabana-org/godotplaywright
+## Godot Playwright — portable Godot automation bridge (web only).
 ##
-## Install as autoload `AutomationBridge`. Enable when shell sets
-## localStorage `__GAME_AUTO__ = "1"` (never on production hosts).
+## Drop into any Godot+Vue shell game as an autoload named `AutomationBridge`.
+## Enable by shell writing localStorage `__GAME_AUTO__ = "1"` (never on prod).
 ##
 ## Protocol (parent → iframe via godotMessageReceiver):
 ##   { "action": "auto", "id": "<req-id>", "cmd": "<cmd>", "args": { ... } }
@@ -13,6 +12,7 @@ extends Node
 ##   { "status": "auto_result", "id": "...", "ok": true|false, "data"|"error": ... }
 ##
 ## Pointer commands use **viewport coordinates** of the Godot game (not CSS pixels).
+## Free scripting: move / down / up / click / drag — no game-specific knowledge required.
 
 const FLAG_KEY := "__GAME_AUTO__"
 const PROTOCOL_VERSION := 1
@@ -417,16 +417,13 @@ func _menu_dimmer() -> CanvasItem:
 	return d as CanvasItem if d is CanvasItem else null
 
 
-## Prefer Rules *Panel* over a menu Button that may share the same node name.
+## There are two nodes named "Rules": the SideBar menu Button and the Panel modal.
+## Prefer the Panel that owns open/close animation.
 func _rules_panel() -> Node:
-	# Common Everest path (Template-line); optional.
-	for path in [
-		"/root/Main/Menu/SideMenu/Rules",
-		"/root/Main/SideMenu/Rules",
-	]:
-		var direct := get_node_or_null(path)
-		if direct != null and direct is Panel:
-			return direct
+	# Explicit path used in CrapsSlot / Template-line mains
+	var direct := get_node_or_null("/root/Main/Menu/SideMenu/Rules")
+	if direct != null and direct is Panel:
+		return direct
 	var candidates: Array = []
 	_collect_named(get_tree().root, "Rules", candidates)
 	for n in candidates:

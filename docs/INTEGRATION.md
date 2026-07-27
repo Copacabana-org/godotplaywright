@@ -68,13 +68,15 @@ cp vue/GameAutoBridge.js  <vuejs>/src/services/GameAutoBridge.js
 
 ### 2.2 Prod hosts (obrigatório)
 
-Edite `PROD_HOSTNAMES` no topo do arquivo — **nunca** deixe vazio se o host de prod não for detectado por prefixo:
+Edite `PROD_HOSTNAMES` no topo do arquivo. Hosts nessa lista **nunca** instalam o bridge, mesmo com `?automation=1`.
 
 ```js
 const PROD_HOSTNAMES = [
   'my-game.casinoapp.live',
 ]
 ```
+
+> **Atenção:** lista vazia + `?automation=1` em um host de produção **não** listado = bridge ligado. Sempre preencha o host real de prod.
 
 ### 2.3 Instalar no GamePage
 

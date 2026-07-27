@@ -1,8 +1,8 @@
 # godotplaywright
 
-**Automação Playwright (JS/Python) para jogos Godot na web** — pensado para o padrão Everest (**Godot WASM + shell Vue**), reutilizável em jogos novos e antigos.
+**Automação Playwright (JS / Python) para jogos Godot na web.**
 
-QA programa fluxos como qualquer e2e Playwright: **mover mouse, clicar L/R, drag, trocar moeda, idioma, abrir menu/regras, spin, esperar eventos**, sem depender de seletores DOM dentro do canvas.
+Feito para o padrão Everest (**Godot WASM + shell Vue** em iframe), reutilizável em jogos **novos e antigos**. O QA programa fluxos como qualquer e2e Playwright — **sem seletores DOM dentro do canvas**.
 
 ```
 Playwright (JS ou Python)
@@ -12,30 +12,32 @@ Vue shell  (GameAutoBridge.js)
         │  iframe.contentWindow.godotMessageReceiver(JSON)
         ▼
 Godot autoload AutomationBridge
-        │  push_input / activate buttons / semantic actions
+        │  push_input · activate buttons · semantic actions
         ▼
 postMessage  auto_ready | auto_result | track
 ```
 
-| Camada | Arquivo | Papel |
-|--------|---------|--------|
-| Godot | [`godot/automation_bridge.gd`](godot/automation_bridge.gd) | Autoload: input sintético + ações |
+| Camada | Path | Papel |
+|--------|------|--------|
+| Godot | [`godot/automation_bridge.gd`](godot/automation_bridge.gd) | Autoload: input + ações |
 | Vue | [`vue/GameAutoBridge.js`](vue/GameAutoBridge.js) | `window.__GAME_AUTO__` no parent |
-| Client JS | [`client/js/gameAuto.js`](client/js/gameAuto.js) | Helper Playwright JS/TS |
+| Client JS | [`client/js/gameAuto.js`](client/js/gameAuto.js) | Helper `@playwright/test` |
 | Client Python | [`client/python/game_auto.py`](client/python/game_auto.py) | Helper Playwright Python |
+
+**Docs**
+
+| Doc | Conteúdo |
+|-----|----------|
+| [docs/INTEGRATION.md](docs/INTEGRATION.md) | Como plugar no jogo (Godot + Vue) — checklist de PR |
+| [docs/API.md](docs/API.md) | API dos clients JS/Python |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | Envelope de mensagens (para implementadores) |
+| [examples/](examples/) | Scripts de demo / smoke |
 
 ---
 
-## Quick start (QA com Playwright)
+## Para quem já usa Playwright
 
-### Python
-
-```bash
-cd client/python
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
-```
+Se você já escreve e2e, isto é um **page object** do jogo:
 
 ```python
 from game_auto import GameAuto
@@ -46,16 +48,18 @@ async def test_smoke(page):
     await auto.wait_ready(timeout_ms=120_000)
 
     await auto.set_language("pt")
+    await auto.open_menu()
+    await auto.open_rules(via_menu=True)
+    await auto.close_rules()
+
     await auto.bet_plus(2)
     await auto.spin()
     result = await auto.wait_track("spin_result", timeout_ms=30_000)
     assert result["event"] == "spin_result"
 
     state = await auto.get_state()
-    print(state["balance_formatted"], state["currency"])
+    assert "balance" in state
 ```
-
-### JavaScript / TypeScript
 
 ```js
 import { GameAuto } from '../client/js/gameAuto.js'
@@ -64,91 +68,144 @@ test('smoke', async ({ page }) => {
   await page.goto(process.env.BASE_URL + '/?automation=1')
   const auto = new GameAuto(page)
   await auto.waitReady()
-  await auto.ping()
-  await auto.setCurrency('USD')
-  const state = await auto.getState()
-  expect(state.currency.code).toBe('USD')
+  await auto.setLanguage('pt')
+  await auto.betPlus(2)
+  await auto.spin()
+  await auto.waitTrack('spin_result', { timeoutMs: 30_000 })
 })
 ```
 
-Também é possível chamar a API bruta sem o client:
+Sem o client, a API bruta no browser:
 
 ```js
 await page.evaluate(async () => {
   await window.__GAME_AUTO__.ready
   await window.__GAME_AUTO__.click(350, 1200)
+  await window.__GAME_AUTO__.setCurrency('USD')
 })
 ```
 
 ---
 
-## O que o bridge oferece
+## Quick start — client de QA
 
-### Pointer (livre)
+### Python
 
-| Método | Descrição |
-|--------|-----------|
-| `move(x, y)` | Move no **viewport Godot** |
-| `click(x, y, button?)` | Clique L/R (+ ativa `BaseButton` sob o ponto) |
-| `rightClick(x, y)` | Atalho botão direito |
-| `mouseDown` / `mouseUp` | Hold |
-| `drag(x1,y1,x2,y2)` | Arraste |
-| `getHotspots()` | Centros de controles conhecidos (PlusBtn, SpinBg, …) |
-| `tapControl(name)` | Clica no centro de um nó por nome |
+```bash
+git clone https://github.com/Copacabana-org/godotplaywright.git
+cd godotplaywright/client/python
+python -m venv .venv && source .venv/bin/activate   # ou fish: source .venv/bin/activate.fish
+pip install -r requirements.txt
+playwright install chromium
+```
 
-> Em Godot web, eventos de mouse sintéticos sozinhos costumam falhar em `TextureButton`. O bridge também **emite os signals** do botão sob o clique.
+```python
+# no seu teste — adicione client/python ao PYTHONPATH ou copie o arquivo
+from game_auto import GameAuto
+```
 
-### Estado e observação
+### JavaScript / TypeScript
 
-| Método | Descrição |
-|--------|-----------|
-| `ping()` | Healthcheck + viewport |
-| `getState()` | balance, bet, currency, language, version… |
-| `waitTrack(event)` | Espera `Tracker.track` do jogo (`spin_result`, …) |
-| `setCurrency('USD'\|preset\|obj)` | Moeda em runtime (Template-line Helpers) |
+```bash
+# no repo de e2e do jogo:
+cp path/to/godotplaywright/client/js/gameAuto.js  e2e/helpers/gameAuto.js
+```
 
-### Ações semânticas (Everest Template-line)
+```js
+import { GameAuto } from './helpers/gameAuto.js'
+```
 
-Funcionam quando o jogo tem os nós/handlers padrão (`Portrait`, `SideMenu`, `Language`, `Rules`, …):
+### URL de teste
 
-| Método | Descrição |
-|--------|-----------|
-| `setLanguage('pt')` | Painel de idioma ou Helpers |
-| `openMenu()` | Abre sidebar |
-| `openLanguages()` | Item Languages do menu |
-| `openRules()` / `closeRules()` | Painel de regras |
-| `betPlus(n)` / `betMinus(n)` | Altera aposta |
-| `spin()` | Dispara spin |
-
-Jogos com layout diferente podem estender `automation_bridge.gd` ou usar só pointer + `tapControl`.
+| Ambiente | Como ligar o bridge |
+|----------|---------------------|
+| Staging / dev / demo hosts | liga sozinho **ou** `?automation=1` |
+| localhost | liga sozinho |
+| Production (`PROD_HOSTNAMES`) | **nunca** |
+| Demo offline | `?demo&automation=1` no **build** (`vite preview`), não no `vite dev` |
 
 ---
 
-## Integração no jogo (~15 min)
+## O que o QA consegue fazer
 
-Guia completo: **[docs/INTEGRATION.md](docs/INTEGRATION.md)**  
-Protocolo: **[docs/PROTOCOL.md](docs/PROTOCOL.md)**  
-API de referência: **[docs/API.md](docs/API.md)**
+### Pointer livre (qualquer jogo com o bridge)
 
-### Resumo
+| Ação | Python | JS |
+|------|--------|-----|
+| Mover | `move(x, y)` | `move(x, y)` |
+| Clique L/R | `click` / `right_click` | `click` / `rightClick` |
+| Hold | `mouse_down` / `mouse_up` | `mouseDown` / `mouseUp` |
+| Drag | `drag(x1,y1,x2,y2)` | `drag(...)` |
+| Por nome de nó | `tap_control("PlusBtn")` | `tapControl("PlusBtn")` |
+| Listar alvos | `get_hotspots()` | `getHotspots()` |
 
-1. Copie `godot/automation_bridge.gd` → autoload `AutomationBridge`
-2. No `main.gd` (receiver JS), despache `action == "auto"` para `AutomationBridge.handle(data)`
-3. Copie `vue/GameAutoBridge.js` e instale em `GamePage` se `isAutomationEnabled()`
-4. Encaminhe `message` events para `gameAuto.handleParentMessage(event.data)`
-5. Liste hosts de **produção** em `PROD_HOSTNAMES` (deny-list)
-6. Reexporte Godot web + rebuild do shell
+Coordenadas = **viewport Godot** (ex. 700×1370), não pixels CSS. Use `get_state()["viewport"]`.
 
-### Segurança
+### Estado e asserts
 
-O bridge **só ativa** em:
+| Ação | Método |
+|------|--------|
+| Healthcheck | `ping()` |
+| Snapshot | `get_state()` → balance, bet, currency, language, version |
+| Moeda runtime | `set_currency("USD")` (sem remount) |
+| Evento de gameplay | `wait_track("spin_result")` (reusa `Tracker.track`) |
 
-- `localhost` / `127.0.0.1`
-- hosts `staging-*`, `stag-*`, `dev-*`, `demo-*`
-- **ou** `?automation=1` em host **não listado em prod**
-- **ou** `localStorage.__GAME_AUTO__ = '1'`
+### Semântica Template-line (slots Everest com SideMenu / Portrait)
 
-Em produção (deny-list) permanece desligado.
+| Ação | Método |
+|------|--------|
+| Idioma | `set_language("pt")` |
+| Menu | `open_menu()` |
+| Idiomas no menu | `open_languages()` |
+| Regras | `open_rules()` / `close_rules()` |
+| Aposta | `bet_plus(n)` / `bet_minus(n)` |
+| Spin | `spin()` |
+
+Se o jogo não tiver esses nós, o cmd retorna erro tipado — use pointer + hotspots.
+
+---
+
+## Integrar em um jogo (dev)
+
+Resumo — detalhes em **[docs/INTEGRATION.md](docs/INTEGRATION.md)**:
+
+1. **Godot:** copiar `automation_bridge.gd` → autoload `AutomationBridge` → despachar `action == "auto"` no `godotMessageReceiver`.
+2. **Vue:** copiar `GameAutoBridge.js` → `installGameAutoBridge` no GamePage → `handleParentMessage` no `message` listener.
+3. Preencher **`PROD_HOSTNAMES`** com o host de produção do jogo.
+4. Reexport web + rebuild shell.
+5. Smoke: `ping` + `getState` em staging/`?automation=1`.
+
+Tempo típico: **~15 min** no primeiro jogo; os seguintes são copy-paste.
+
+---
+
+## Exemplos
+
+| Script | O que faz |
+|--------|-----------|
+| [`examples/smoke_pointer.py`](examples/smoke_pointer.py) | ping + move/click |
+| [`examples/currency_matrix.py`](examples/currency_matrix.py) | todas as moedas preset |
+| [`examples/demo_play_flow.py`](examples/demo_play_flow.py) | pt → bet+ → spin (headed) |
+| [`examples/demo_menu_lang_spin.py`](examples/demo_menu_lang_spin.py) | pt → menu → muda idioma → bet → spin |
+| [`examples/demo_rules_i18n_shots.py`](examples/demo_rules_i18n_shots.py) | regras nas 5 primeiras línguas + PNG |
+| [`examples/playwright.spec.mjs`](examples/playwright.spec.mjs) | esqueleto `@playwright/test` |
+
+```bash
+export BASE_URL=https://staging-my-game.example   # ou http://127.0.0.1:4174
+cd examples
+# headed (para gravar / demo)
+python demo_play_flow.py
+# screenshots de regras
+OUT_DIR=/tmp/rules_i18n LANGS=pt,en,es,hi,ru python demo_rules_i18n_shots.py
+```
+
+---
+
+## Segurança
+
+- Bridge **só** em hosts não-prod (ou `?automation=1` fora da deny-list).
+- Em produção listada em `PROD_HOSTNAMES`, `window.__GAME_AUTO__` **não** é instalado.
+- Flag Godot: `localStorage.__GAME_AUTO__ = "1"` setada pelo shell **antes** do iframe do jogo carregar.
 
 ---
 
@@ -156,51 +213,31 @@ Em produção (deny-list) permanece desligado.
 
 ```
 godotplaywright/
-├── godot/automation_bridge.gd   # drop-in Godot
-├── vue/GameAutoBridge.js        # drop-in Vue shell
+├── godot/automation_bridge.gd     # drop-in autoload
+├── vue/GameAutoBridge.js          # drop-in shell bridge
 ├── client/
-│   ├── js/gameAuto.js           # Playwright JS
-│   └── python/game_auto.py      # Playwright Python
-├── examples/                    # scripts de referência
-├── docs/                        # integração, protocolo, API
+│   ├── js/gameAuto.js
+│   └── python/game_auto.py
+├── docs/
+│   ├── INTEGRATION.md
+│   ├── API.md
+│   └── PROTOCOL.md
+├── examples/
 └── README.md
 ```
 
-Não inclui nenhum jogo (CrapsSlot, Gelato, …) — só o toolkit de QA.
-
----
-
-## Exemplos
-
-| Script | Uso |
-|--------|-----|
-| [`examples/smoke_pointer.py`](examples/smoke_pointer.py) | move / click / drag |
-| [`examples/currency_matrix.py`](examples/currency_matrix.py) | todas as moedas preset |
-| [`examples/playwright.spec.mjs`](examples/playwright.spec.mjs) | spec mínima `@playwright/test` |
-
-```bash
-export BASE_URL=https://staging-….casinoapp.live
-python examples/smoke_pointer.py
-```
-
----
-
-## Requisitos
-
-- Jogo Godot **4.x** exportado para **Web**, embutido em iframe same-origin no shell
-- Shell com `godotMessageReceiver` (padrão Everest `broadcast`)
-- Playwright recente (JS ou Python)
-- Godot com `JavaScriptBridge` (export web)
-
----
-
-## Contribuindo / versionamento
-
-- Mudanças no **protocolo** (`cmd` novos) → documentar em `docs/PROTOCOL.md` e bumpar `PROTOCOL_VERSION` no GDScript.
-- Preferir ações genéricas no bridge; lógica de um jogo só deve ficar no próprio jogo quando possível.
+Não inclui assets de jogo, export Godot nem o shell Vue completo — só o necessário para **QA + integração**.
 
 ---
 
 ## Licença
 
 MIT — ver [LICENSE](LICENSE).
+
+---
+
+## Manutenção
+
+- Org: [Copacabana-org](https://github.com/Copacabana-org)
+- Issues / PRs neste repositório
+- Referência de integração: jogos Template-line (Gelato, CrapsSlot, GTF, …) com `godotMessageReceiver` + dual-iframe
