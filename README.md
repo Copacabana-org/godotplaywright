@@ -23,6 +23,7 @@ postMessage  auto_ready | auto_result | track
 | Vue | [`vue/GameAutoBridge.js`](vue/GameAutoBridge.js) | `window.__GAME_AUTO__` no parent |
 | Client JS | [`client/js/gameAuto.js`](client/js/gameAuto.js) | Helper `@playwright/test` |
 | Client Python | [`client/python/game_auto.py`](client/python/game_auto.py) | Helper Playwright Python |
+| devplay | [`devplay/`](devplay/) | Roda o export web **sem backend**, com rodadas simuladas |
 
 **Docs**
 
@@ -32,6 +33,7 @@ postMessage  auto_ready | auto_result | track
 | [docs/API.md](docs/API.md) | API dos clients JS/Python |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Envelope de mensagens (para implementadores) |
 | [docs/SECURITY.md](docs/SECURITY.md) | Gate de enable / nunca em prod |
+| [docs/DEVPLAY.md](docs/DEVPLAY.md) | devplay: export web sem backend, para layout e protocolo de rodada |
 | [examples/](examples/) | Scripts de demo / smoke |
 
 ---

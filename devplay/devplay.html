@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>dev play</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: #0d0b12; color: #eee;
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        display: flex; height: 100vh; overflow: hidden;
+      }
+      #stage { flex: 0 0 auto; display: flex; align-items: flex-start;
+               justify-content: center; padding: 12px; }
+      #game { border: 0; background: #000; transform-origin: top left; border-radius: 10px; }
+      #side { flex: 1; min-width: 320px; padding: 16px; overflow-y: auto;
+              border-left: 1px solid #2b2536; }
+      h1 { font-size: 15px; margin: 0 0 4px; color: #e8b83b; }
+      .sub { color: #9186a6; margin-bottom: 14px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+      button { background: #241d33; color: #eee; border: 1px solid #473a63; border-radius: 6px;
+               padding: 6px 10px; cursor: pointer; font: inherit; }
+      button:hover { background: #33294a; }
+      input[type="number"], input[type="text"] {
+        width: 70px; background: #16121f; color: #eee; border: 1px solid #473a63;
+        border-radius: 4px; padding: 4px; font: inherit;
+      }
+      label { color: #9186a6; }
+      #log { background: #08060c; border: 1px solid #2b2536; border-radius: 6px;
+             padding: 10px; height: 55vh; overflow-y: auto; white-space: pre-wrap; }
+      .in  { color: #66e0a3; }
+      .out { color: #f0c14b; }
+      .sys { color: #7ab8ff; }
+      .err { color: #ff7b7b; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"><iframe id="game"></iframe></div>
+
+    <div id="side">
+      <h1 id="title">dev play</h1>
+      <div class="sub" id="subtitle"></div>
+      <div class="row" id="controls"></div>
+      <div class="row">
+        <button id="runOnce">rodar 1 ciclo</button>
+        <button id="clearLog">limpar log</button>
+      </div>
+      <div id="log"></div>
+    </div>
+
+    <script type="module">
+      // Runtime genérico do devplay. Tudo que é específico do jogo vive em
+      // ./devplay.config.js e ./scenarios/<nome>.js — este arquivo não muda.
+      const logEl = document.getElementById('log')
+      const log = (cls, msg) => {
+        const d = document.createElement('div')
+        d.className = cls
+        d.textContent = `${new Date().toLocaleTimeString()}  ${msg}`
+        logEl.appendChild(d)
+        logEl.scrollTop = logEl.scrollHeight
+      }
+      document.getElementById('clearLog').onclick = () => (logEl.textContent = '')
+      window.addEventListener('error', (e) => log('err', `js: ${e.message}`))
+
+      let cfg
+      try {
+        cfg = (await import('./devplay.config.js')).default
+      } catch (e) {
+        log('err', `não consegui carregar devplay.config.js: ${e.message}`)
+        throw e
+      }
+
+      const viewport = cfg.viewport ?? { width: 720, height: 1560 }
+      document.title = `${cfg.title ?? 'jogo'} — dev play`
+      document.getElementById('title').textContent = `${cfg.title ?? 'jogo'} — dev play`
+      document.getElementById('subtitle').innerHTML =
+        `Servidor simulado neste tab (BroadcastChannel <code>ws_bus</code>).<br />` +
+        `REST mockado no mesmo origin (<code>/api/</code>).`
+
+      // ── localStorage que o shell Vue normalmente injeta ────────────────────
+      const storage = {
+        websocket_url: 'broadcast',
+        api_url: location.origin + '/api/',
+        cms_url: location.origin + '/api/',
+        session: 'devplay',
+        user_id: 'devplay',
+        ...(cfg.storage ?? {}),
+      }
+      for (const [k, v] of Object.entries(storage)) {
+        if (v === null) localStorage.removeItem(k)
+        else localStorage.setItem(k, String(v))
+      }
+
+      // ── iframe do jogo, escalado para caber na janela ──────────────────────
+      const game = document.getElementById('game')
+      game.style.width = `${viewport.width}px`
+      game.style.height = `${viewport.height}px`
+      game.src = cfg.game
+      const fit = () => {
+        const s = Math.min(
+          (window.innerHeight - 24) / viewport.height,
+          (window.innerWidth * (cfg.stageRatio ?? 0.55)) / viewport.width,
+        )
+        game.style.transform = `scale(${s})`
+        document.getElementById('stage').style.flexBasis = `${viewport.width * s + 24}px`
+      }
+      window.addEventListener('resize', fit)
+      fit()
+
+      // ── bus ────────────────────────────────────────────────────────────────
+      const bus = new BroadcastChannel(cfg.busName ?? 'ws_bus')
+      const send = (event, message) => {
+        log('out', `→ ${event} ${JSON.stringify(message)}`)
+        bus.postMessage(JSON.stringify({ event, message }))
+      }
+      // Igual a send() mas sem poluir o log — para eventos de alta frequência (ticks).
+      const sendQuiet = (event, message) =>
+        bus.postMessage(JSON.stringify({ event, message }))
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+      // ── cenário ────────────────────────────────────────────────────────────
+      const scenario = (await import(`./scenarios/${cfg.scenario}.js`)).default
+
+      const controlsEl = document.getElementById('controls')
+      const values = {}
+      for (const c of scenario.controls ?? []) {
+        const wrap = document.createElement('label')
+        if (c.type === 'checkbox') {
+          const i = document.createElement('input')
+          i.type = 'checkbox'
+          i.checked = !!c.value
+          i.onchange = () => (values[c.id] = i.checked)
+          values[c.id] = !!c.value
+          wrap.append(i, ` ${c.label}`)
+        } else if (c.type === 'number' || c.type === 'text') {
+          const i = document.createElement('input')
+          i.type = c.type
+          i.value = c.value ?? ''
+          if (c.placeholder) i.placeholder = c.placeholder
+          i.oninput = () => (values[c.id] = i.value)
+          values[c.id] = c.value ?? ''
+          wrap.append(`${c.label} `, i)
+        } else if (c.type === 'button') {
+          const b = document.createElement('button')
+          b.textContent = c.label
+          b.onclick = () => c.onClick?.(ctx)
+          wrap.append(b)
+        }
+        controlsEl.appendChild(wrap)
+      }
+      const ctl = (id) => values[id]
+
+      const ctx = { send, sendQuiet, sleep, log, ctl, bus, storage }
+
+      let running = false
+      async function loop(once = false) {
+        if (running) return
+        running = true
+        try {
+          do {
+            await scenario.run(ctx)
+          } while (!once && ctl(scenario.loopControl ?? 'autoLoop') !== false)
+        } catch (e) {
+          log('err', `cenário: ${e.message}`)
+        }
+        running = false
+      }
+      document.getElementById('runOnce').onclick = () => loop(true)
+      for (const c of scenario.controls ?? []) {
+        if (c.type === 'checkbox' && c.id === (scenario.loopControl ?? 'autoLoop')) {
+          controlsEl.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+            if (e.target.checked) loop()
+          })
+        }
+      }
+
+      // ── o que o jogo publica de volta ──────────────────────────────────────
+      bus.onmessage = (e) => {
+        let d
+        try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data } catch { return }
+        if (!d || !d.event) return
+        if ((scenario.mute ?? ['ping']).includes(d.event)) return
+        log('in', `← ${d.event} ${JSON.stringify(d.message)}`)
+        scenario.onGameEvent?.(ctx, d.event, d.message)
+      }
+
+      window.addEventListener('message', (e) => {
+        const s = e.data?.status
+        if (s && s !== 'track') log('sys', `jogo: ${s}`)
+      })
+
+      log('sys', `pronto — cenário "${cfg.scenario}", aguardando o Godot carregar`)
+      setTimeout(() => loop(), cfg.startDelayMs ?? 6000)
+    </script>
+  </body>
+</html>
